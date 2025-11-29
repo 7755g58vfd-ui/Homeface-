@@ -1,6 +1,6 @@
-// --------------------------
-// HOMEFACE JS (NO API KEY)
-// --------------------------
+// -------------------
+// Homeface JS (Safe)
+// -------------------
 
 async function sendMessage() {
     const input = document.getElementById("userInput");
@@ -32,5 +32,5 @@ async function sendMessage() {
     }
 }
 
-// Attach the button listener
+// Attach button event
 document.getElementById("sendButton").addEventListener("click", sendMessage);
