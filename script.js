@@ -1,25 +1,28 @@
 /********************************************
  * HOMEFACE V5 — FULL CONNECTED EDITION
- * Blink • Sleeping • Mouth Movement • Voice • Supabase Memory
+ * Blink • Voice • Chat • Supabase Memory
+ * Sleeping Mode • Mouth Animation
  ********************************************/
 
-// 🔑 KEYS
-const OPENAI_KEY = "YOUR_OPENAI_KEY_HERE";
+// INSERT KEYS
+const OPENAI_KEY = "add api here";
 const SUPABASE_URL = "https://irhgsqxzjkwkwhwhtvvo.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGdzcXh6amt3a3dod2h0dHZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MTQ0NjUsImV4cCI6MjA4MDA5MDQ2NX0.k0X1UvWIGLMFaWlu2ml34ptqT-CwsT-2djJekJOGEDs";
 
-// Create client
+// SUPABASE CLIENT
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// UI elements
+// UI ELEMENTS
 const face = document.getElementById("homeface-img");
 const chatBox = document.getElementById("chat-box");
 const inputBox = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
 /********************************************
- * BLINKING
+ * BLINKING SYSTEM
  ********************************************/
+
+// NEW FRAMESET using latest PNGs
 const blinkFrames = [
     "homeface-eyesopen2.png",
     "homeface-halfblink2.png",
@@ -35,75 +38,91 @@ function playBlink() {
     blinking = true;
 
     let i = 0;
-    const interval = setInterval(() => {
+    const blinkInterval = setInterval(() => {
         face.src = blinkFrames[i];
         i++;
         if (i >= blinkFrames.length) {
-            clearInterval(interval);
+            clearInterval(blinkInterval);
             blinking = false;
         }
     }, 80);
 }
 
 function autoBlinkLoop() {
+    const delay = Math.random() * 2500 + 2000; // 2–4.5 sec
     setTimeout(() => {
         playBlink();
         autoBlinkLoop();
-    }, Math.random() * 3000 + 2500);
+    }, delay);
 }
+
 autoBlinkLoop();
 
 /********************************************
- * SLEEP MODE
+ * SLEEPING SYSTEM
  ********************************************/
+
+// Correct PNGs
+const sleepIntro = "homeface-sleeping1.png";
+const sleepLoopFrames = [
+    "homeface-sleeping2.png",
+    "homeface-sleeping3.png",
+    "homeface-sleeping4.png"
+];
+
 let idleTimer;
 let sleeping = false;
 let sleepLoopInterval;
 
-const sleepIntro = "homeface-sleeping1.png";
-const sleepLoopFrames = ["homeface-sleeping2.png", "homeface-sleeping3.png", "homeface-sleeping4.png"];
-
 function resetIdleTimer() {
     if (sleeping) wakeUp();
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(startSleeping, 30000);
+    idleTimer = setTimeout(startSleeping, 30000); // 30 sec idle
 }
 
 function startSleeping() {
     sleeping = true;
     face.src = sleepIntro;
 
-    setTimeout(() => {
-        let index = 0;
-        sleepLoopInterval = setInterval(() => {
-            face.src = sleepLoopFrames[index];
-            index = (index + 1) % sleepLoopFrames.length;
-        }, 800);
+    setTimeout(startSleepLoop, 1000);
+}
+
+function startSleepLoop() {
+    let i = 0;
+    sleepLoopInterval = setInterval(() => {
+        face.src = sleepLoopFrames[i];
+        i = (i + 1) % sleepLoopFrames.length;
     }, 800);
 }
 
 function wakeUp() {
     clearInterval(sleepLoopInterval);
     sleeping = false;
-    face.src = "homeface-eyesopen2.png";
+
+    // Wake-up animation → then eyes open
+    face.src = sleepIntro;
+    setTimeout(() => {
+        face.src = "homeface-eyesopen2.png"; // Correct default
+    }, 500);
 }
 
 /********************************************
- * TALKING MOUTH
+ * MOUTH ANIMATION SYSTEM (talking)
  ********************************************/
+
 const mouthFrames = [
     "homeface-mouth-closed.png",
     "homeface-midmouth2.png",
     "homeface-mouth-open.png",
-    "homeface-midmouth2.png",
+    "homeface-midmouth2.png"
 ];
 
-let talking = false;
-let talkingInterval;
+let talkingInterval = null;
+let isTalking = false;
 
 function startMouthAnimation() {
-    if (talking) return;
-    talking = true;
+    if (isTalking) return;
+    isTalking = true;
 
     let i = 0;
     talkingInterval = setInterval(() => {
@@ -113,13 +132,15 @@ function startMouthAnimation() {
 }
 
 function stopMouthAnimation() {
-    talking = false;
     clearInterval(talkingInterval);
+    isTalking = false;
+
+    // Return to default awake face
     face.src = "homeface-eyesopen2.png";
 }
 
 /********************************************
- * TEXT TO SPEECH
+ * TEXT-TO-SPEECH
  ********************************************/
 async function speakText(text) {
     try {
@@ -136,48 +157,52 @@ async function speakText(text) {
             })
         });
 
-        const arrayBuffer = await response.arrayBuffer();
-        const audio = new Audio(URL.createObjectURL(new Blob([arrayBuffer])));
+        const audioData = await response.arrayBuffer();
+        const url = URL.createObjectURL(new Blob([audioData], { type: "audio/mpeg" }));
+        const audio = new Audio(url);
+
         audio.onplay = startMouthAnimation;
         audio.onended = stopMouthAnimation;
+
         audio.play();
     } catch (err) {
-        console.error("TTS error:", err);
+        console.error("Voice error:", err);
     }
 }
 
 /********************************************
- * SUPABASE MEMORY
+ * MEMORY FUNCTIONS — SUPABASE
  ********************************************/
 async function loadMemory() {
-    const { data, error } = await supabaseClient.from("memory").select("content");
+    const { data, error } = await supabaseClient
+        .from("memory")
+        .select("key, value")
+        .order("id", { ascending: true });
 
     if (error) {
         console.error("Memory load error:", error);
         return "";
     }
 
-    return data.map(x => x.content).join("\n");
+    return data
+        .map(row => `User: ${row.key}\nHomeface: ${row.value}`)
+        .join("\n");
 }
 
 async function saveMemory(userMessage, aiReply) {
-    const text = `User: ${userMessage}\nHomeface: ${aiReply}`;
+    const { error } = await supabaseClient
+        .from("memory")
+        .insert({
+            key: userMessage,
+            value: aiReply
+        });
 
-    const { error } = await supabaseClient.from("memory").insert({ content: text });
-
-    if (error) {
-        console.error("Memory save error:", error);
-    }
+    if (error) console.error("Memory save error:", error);
 }
 
 /********************************************
- * CHAT / AI RESPONSE
+ * MAIN SEND MESSAGE FUNCTION
  ********************************************/
-function addMessage(sender, text) {
-    chatBox.innerHTML += `<p><strong>${sender}:</strong> ${text}</p>`;
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
 async function sendMessage() {
     const message = inputBox.value.trim();
     if (!message) return;
@@ -197,8 +222,8 @@ async function sendMessage() {
             body: JSON.stringify({
                 model: "gpt-4o-mini-chat",
                 messages: [
-                    { role: "system", content: "You are Homeface, a friendly emotional AI." },
-                    { role: "system", content: "Here is your memory:\n" + memory },
+                    { role: "system", content: "You are Homeface, a friendly, warm character with emotional memory." },
+                    { role: "system", content: "Here is your memory so far:\n" + memory },
                     { role: "user", content: message }
                 ]
             })
@@ -209,13 +234,20 @@ async function sendMessage() {
 
         addMessage("Homeface", reply);
         speakText(reply);
-
         saveMemory(message, reply);
 
     } catch (err) {
+        console.error("AI error:", err);
         addMessage("Homeface", "Error connecting to AI.");
-        console.error(err);
     }
+}
+
+/********************************************
+ * CHAT BOX OUTPUT
+ ********************************************/
+function addMessage(sender, text) {
+    chatBox.innerHTML += `<p><strong>${sender}:</strong> ${text}</p>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 /********************************************
@@ -226,9 +258,11 @@ inputBox.addEventListener("keypress", e => {
     if (e.key === "Enter") sendMessage();
 });
 
+// Idle sleep triggers
 document.addEventListener("mousemove", resetIdleTimer);
 document.addEventListener("mousedown", resetIdleTimer);
 document.addEventListener("touchstart", resetIdleTimer);
 document.addEventListener("keydown", resetIdleTimer);
 
+// Start idle timer
 resetIdleTimer();
