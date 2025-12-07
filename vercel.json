@@ -1,0 +1,7 @@
+{
+  "env": {
+    "OPENAI_KEY": "@openai_key",
+    "SUPABASE_URL": "@supabase_url",
+    "SUPABASE_ANON": "@supabase_anon"
+  }
+}
