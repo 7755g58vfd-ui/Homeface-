@@ -6,54 +6,38 @@ body {
     font-family: Arial, sans-serif;
 
     display: flex;
-    justify-content: flex-start; /* brings app higher */
+    justify-content: flex-start;
     align-items: center;
 
     height: 100vh;
     overflow: hidden;
 }
 
-/* MAIN LAYOUT */
+/* LAYOUT */
 .container {
     width: 100%;
     max-width: 420px;
-    margin: 0 auto;
     text-align: center;
-    padding-top: 10px; /* lifts everything slightly */
+    margin: 0 auto;
+    padding-top: 10px;
 }
 
-/* HOMEFACE IMAGE */
+/* FACE IMAGE */
 .face-wrapper {
     position: relative;
     display: inline-block;
-    margin-top: -5px; /* moves Homeface up a bit */
 }
 
 #homeface-img {
-    width: 300px;         /* bigger Homeface */
+    width: 300px;
     max-width: 85vw;
-    transition: filter 0.3s ease, transform 0.2s ease;
-}
-
-/* TALKING GLOW */
-.glow {
-    filter: drop-shadow(0 0 25px #ffcc33);
-}
-
-@keyframes talk {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.06); }
-    100% { transform: scale(1); }
-}
-
-.talking {
-    animation: talk 0.6s infinite;
+    transition: transform 0.2s ease, filter 0.3s ease;
 }
 
 /* CHAT BOX */
 #chat-box {
     height: 220px;
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0,0,0,0.55);
     overflow-y: auto;
     padding: 12px;
     border-radius: 10px;
@@ -65,7 +49,7 @@ body {
 /* INPUT AREA */
 .input-area {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     justify-content: center;
 }
 
@@ -76,12 +60,12 @@ body {
     border: none;
 }
 
-#send-btn,
-#mic-btn {
+button {
     padding: 10px 15px;
     border-radius: 5px;
     border: none;
     background: #ffb300;
+    color: black;
     font-weight: bold;
     cursor: pointer;
 }
