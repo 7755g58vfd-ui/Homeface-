@@ -9,10 +9,15 @@ const OPENAI_KEY = "";
 const SUPABASE_URL = "";
 const SUPABASE_ANON = "";
 
+// Proper variable resolution (FIXED)
+const resolvedOpenAI = OPENAI_KEY || window.env?.OPENAI_KEY;
+const resolvedSupabaseURL = SUPABASE_URL || window.env?.SUPABASE_URL;
+const resolvedSupabaseAnon = SUPABASE_ANON || window.env?.SUPABASE_ANON;
+
 // SUPABASE CLIENT
 const supabaseClient = supabase.createClient(
-    SUPABASE_URL || window.env?.SUPABASE_URL,
-    SUPABASE_ANON || window.env?.SUPABASE_ANON
+    resolvedSupabaseURL,
+    resolvedSupabaseAnon
 );
 
 // UI ELEMENTS
@@ -36,7 +41,7 @@ const blinkFrames = [
 let blinking = false;
 
 function playBlink() {
-    if (blinking) return;
+    if (blinking || sleeping) return;
     blinking = true;
 
     let i = 0;
@@ -64,7 +69,7 @@ autoBlinkLoop();
  * SLEEPING SYSTEM — FINAL V5
  ********************************************/
 
-const sleepIntro = "homeface-sleeping1.png"; // transition frame
+const sleepIntro = "homeface-sleeping1.png";
 const sleepLoopFrames = [
     "homeface-sleeping2.png",
     "homeface-sleeping3.png",
@@ -75,8 +80,7 @@ let idleTimer = null;
 let sleeping = false;
 let sleepLoopInterval = null;
 
-// How long before sleep (ms)
-const SLEEP_DELAY = 30000; // Change to 8000 for testing
+const SLEEP_DELAY = 30000;
 
 function resetIdleTimer() {
     if (sleeping) wakeUp();
@@ -87,11 +91,8 @@ function resetIdleTimer() {
 
 function startSleeping() {
     sleeping = true;
-
-    // Transition frame
     face.src = sleepIntro;
 
-    // After 1 second, start cycle
     setTimeout(startSleepLoop, 1000);
 }
 
@@ -106,30 +107,24 @@ function startSleepLoop() {
 
 function wakeUp() {
     sleeping = false;
-
     clearInterval(sleepLoopInterval);
 
-    // Wake transition
     face.src = sleepIntro;
 
-    // Return to eyes open
     setTimeout(() => {
         face.src = "homeface-eyesopen2.png";
     }, 400);
 }
 
-// Real interactions reset sleep timer
 ["touchstart", "touchend", "mousedown", "keydown"].forEach(event => {
     document.addEventListener(event, resetIdleTimer);
 });
 
-// Start timer
 resetIdleTimer();
 
 /********************************************
  * MOUTH ANIMATION
  ********************************************/
-
 const mouthFrames = [
     "homeface-mouth-closed.png",
     "homeface-midmouth2.png",
@@ -141,7 +136,7 @@ let talkingInterval = null;
 let isTalking = false;
 
 function startMouthAnimation() {
-    if (isTalking) return;
+    if (isTalking || sleeping) return;
     isTalking = true;
 
     let i = 0;
@@ -154,7 +149,10 @@ function startMouthAnimation() {
 function stopMouthAnimation() {
     clearInterval(talkingInterval);
     isTalking = false;
-    face.src = "homeface-eyesopen2.png";
+
+    if (!sleeping) {
+        face.src = "homeface-eyesopen2.png";
+    }
 }
 
 /********************************************
@@ -162,11 +160,16 @@ function stopMouthAnimation() {
  ********************************************/
 async function speakText(text) {
     try {
+        if (!resolvedOpenAI) {
+            console.warn("⚠ No OpenAI key found.");
+            return;
+        }
+
         const response = await fetch("https://api.openai.com/v1/audio/speech", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_KEY || window.env?.OPENAI_KEY}`
+                "Authorization": `Bearer ${resolvedOpenAI}`
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini-tts",
@@ -182,6 +185,7 @@ async function speakText(text) {
         audio.onended = stopMouthAnimation;
 
         audio.play();
+
     } catch (err) {
         console.error("Voice error:", err);
     }
@@ -226,7 +230,7 @@ async function sendMessage() {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_KEY || window.env?.OPENAI_KEY}`
+                "Authorization": `Bearer ${resolvedOpenAI}`
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini-chat",
