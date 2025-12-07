@@ -4,25 +4,27 @@
  * Sleeping Mode • Mouth Animation
  ********************************************/
 
-// INSERT KEYS
-const OPENAI_KEY = "add api here";
-const SUPABASE_URL = "https://irhgsqxzjkwkwhwhtvvo.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGdzcXh6amt3a3dod2h0dHZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MTQ0NjUsImV4cCI6MjA4MDA5MDQ2NX0.k0X1UvWIGLMFaWlu2ml34ptqT-CwsT-2djJekJOGEDs";
+// INSERT KEYS (Leave blank—Vercel injects these automatically)
+const OPENAI_KEY = "";
+const SUPABASE_URL = "";
+const SUPABASE_ANON = "";
 
 // SUPABASE CLIENT
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const supabaseClient = supabase.createClient(
+    SUPABASE_URL || window.env?.SUPABASE_URL,
+    SUPABASE_ANON || window.env?.SUPABASE_ANON
+);
 
 // UI ELEMENTS
 const face = document.getElementById("homeface-img");
 const chatBox = document.getElementById("chat-box");
 const inputBox = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
+const micBtn = document.getElementById("mic-btn");
 
 /********************************************
  * BLINKING SYSTEM
  ********************************************/
-
-// NEW FRAMESET using latest PNGs
 const blinkFrames = [
     "homeface-eyesopen2.png",
     "homeface-halfblink2.png",
@@ -38,18 +40,18 @@ function playBlink() {
     blinking = true;
 
     let i = 0;
-    const blinkInterval = setInterval(() => {
+    const blinkTimer = setInterval(() => {
         face.src = blinkFrames[i];
         i++;
         if (i >= blinkFrames.length) {
-            clearInterval(blinkInterval);
+            clearInterval(blinkTimer);
             blinking = false;
         }
     }, 80);
 }
 
 function autoBlinkLoop() {
-    const delay = Math.random() * 2500 + 2000; // 2–4.5 sec
+    const delay = Math.random() * 2500 + 2000;
     setTimeout(() => {
         playBlink();
         autoBlinkLoop();
@@ -59,55 +61,73 @@ function autoBlinkLoop() {
 autoBlinkLoop();
 
 /********************************************
- * SLEEPING SYSTEM
+ * SLEEPING SYSTEM — FINAL V5
  ********************************************/
 
-// Correct PNGs
-const sleepIntro = "homeface-sleeping1.png";
+const sleepIntro = "homeface-sleeping1.png"; // transition frame
 const sleepLoopFrames = [
     "homeface-sleeping2.png",
     "homeface-sleeping3.png",
     "homeface-sleeping4.png"
 ];
 
-let idleTimer;
+let idleTimer = null;
 let sleeping = false;
-let sleepLoopInterval;
+let sleepLoopInterval = null;
+
+// How long before sleep (ms)
+const SLEEP_DELAY = 30000; // Change to 8000 for testing
 
 function resetIdleTimer() {
     if (sleeping) wakeUp();
+
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(startSleeping, 30000); // 30 sec idle
+    idleTimer = setTimeout(startSleeping, SLEEP_DELAY);
 }
 
 function startSleeping() {
     sleeping = true;
+
+    // Transition frame
     face.src = sleepIntro;
 
+    // After 1 second, start cycle
     setTimeout(startSleepLoop, 1000);
 }
 
 function startSleepLoop() {
     let i = 0;
+
     sleepLoopInterval = setInterval(() => {
         face.src = sleepLoopFrames[i];
         i = (i + 1) % sleepLoopFrames.length;
-    }, 800);
+    }, 900);
 }
 
 function wakeUp() {
-    clearInterval(sleepLoopInterval);
     sleeping = false;
 
-    // Wake-up animation → then eyes open
+    clearInterval(sleepLoopInterval);
+
+    // Wake transition
     face.src = sleepIntro;
+
+    // Return to eyes open
     setTimeout(() => {
-        face.src = "homeface-eyesopen2.png"; // Correct default
-    }, 500);
+        face.src = "homeface-eyesopen2.png";
+    }, 400);
 }
 
+// Real interactions reset sleep timer
+["touchstart", "touchend", "mousedown", "keydown"].forEach(event => {
+    document.addEventListener(event, resetIdleTimer);
+});
+
+// Start timer
+resetIdleTimer();
+
 /********************************************
- * MOUTH ANIMATION SYSTEM (talking)
+ * MOUTH ANIMATION
  ********************************************/
 
 const mouthFrames = [
@@ -134,8 +154,6 @@ function startMouthAnimation() {
 function stopMouthAnimation() {
     clearInterval(talkingInterval);
     isTalking = false;
-
-    // Return to default awake face
     face.src = "homeface-eyesopen2.png";
 }
 
@@ -148,7 +166,7 @@ async function speakText(text) {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_KEY}`
+                "Authorization": `Bearer ${OPENAI_KEY || window.env?.OPENAI_KEY}`
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini-tts",
@@ -158,8 +176,7 @@ async function speakText(text) {
         });
 
         const audioData = await response.arrayBuffer();
-        const url = URL.createObjectURL(new Blob([audioData], { type: "audio/mpeg" }));
-        const audio = new Audio(url);
+        const audio = new Audio(URL.createObjectURL(new Blob([audioData])));
 
         audio.onplay = startMouthAnimation;
         audio.onended = stopMouthAnimation;
@@ -171,7 +188,7 @@ async function speakText(text) {
 }
 
 /********************************************
- * MEMORY FUNCTIONS — SUPABASE
+ * MEMORY (SUPABASE)
  ********************************************/
 async function loadMemory() {
     const { data, error } = await supabaseClient
@@ -179,10 +196,7 @@ async function loadMemory() {
         .select("key, value")
         .order("id", { ascending: true });
 
-    if (error) {
-        console.error("Memory load error:", error);
-        return "";
-    }
+    if (error) return "";
 
     return data
         .map(row => `User: ${row.key}\nHomeface: ${row.value}`)
@@ -190,18 +204,13 @@ async function loadMemory() {
 }
 
 async function saveMemory(userMessage, aiReply) {
-    const { error } = await supabaseClient
+    await supabaseClient
         .from("memory")
-        .insert({
-            key: userMessage,
-            value: aiReply
-        });
-
-    if (error) console.error("Memory save error:", error);
+        .insert({ key: userMessage, value: aiReply });
 }
 
 /********************************************
- * MAIN SEND MESSAGE FUNCTION
+ * MAIN SEND MESSAGE
  ********************************************/
 async function sendMessage() {
     const message = inputBox.value.trim();
@@ -217,7 +226,7 @@ async function sendMessage() {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_KEY}`
+                "Authorization": `Bearer ${OPENAI_KEY || window.env?.OPENAI_KEY}`
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini-chat",
@@ -243,7 +252,7 @@ async function sendMessage() {
 }
 
 /********************************************
- * CHAT BOX OUTPUT
+ * CHAT DISPLAY
  ********************************************/
 function addMessage(sender, text) {
     chatBox.innerHTML += `<p><strong>${sender}:</strong> ${text}</p>`;
@@ -257,12 +266,3 @@ sendBtn.addEventListener("click", sendMessage);
 inputBox.addEventListener("keypress", e => {
     if (e.key === "Enter") sendMessage();
 });
-
-// Idle sleep triggers
-document.addEventListener("mousemove", resetIdleTimer);
-document.addEventListener("mousedown", resetIdleTimer);
-document.addEventListener("touchstart", resetIdleTimer);
-document.addEventListener("keydown", resetIdleTimer);
-
-// Start idle timer
-resetIdleTimer();
