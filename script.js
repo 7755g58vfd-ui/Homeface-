@@ -1,34 +1,36 @@
 /********************************************
- * HOMEFACE V5 — FULL CONNECTED EDITION
- * Blink • Voice • Chat • Supabase Memory
- * Sleeping Mode • Mouth Animation
+ * HOMEFACE V5 — CLEAN FINAL EDITION
+ * Blink • Look • Pray • Talk • Sleep • Local Memory
  ********************************************/
 
-// INSERT KEYS (Leave blank—Vercel injects these automatically)
-const OPENAI_KEY = "";
-const SUPABASE_URL = "";
-const SUPABASE_ANON = "";
-
-// Proper variable resolution (FIXED)
-const resolvedOpenAI = OPENAI_KEY || window.env?.OPENAI_KEY;
-const resolvedSupabaseURL = SUPABASE_URL || window.env?.SUPABASE_URL;
-const resolvedSupabaseAnon = SUPABASE_ANON || window.env?.SUPABASE_ANON;
-
-// SUPABASE CLIENT
-const supabaseClient = supabase.createClient(
-    resolvedSupabaseURL,
-    resolvedSupabaseAnon
-);
+const OPENAI_KEY = "add api here";
 
 // UI ELEMENTS
 const face = document.getElementById("homeface-img");
 const chatBox = document.getElementById("chat-box");
 const inputBox = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
-const micBtn = document.getElementById("mic-btn");
 
 /********************************************
- * BLINKING SYSTEM
+ * LOCAL MEMORY ENGINE
+ ********************************************/
+function loadMemory() {
+    return {
+        prefs: JSON.parse(localStorage.getItem("hf_prefs")) || { voice: "nova" },
+        chat: JSON.parse(localStorage.getItem("hf_chat")) || []
+    };
+}
+
+let HF = loadMemory();
+
+function saveChat(role, content) {
+    HF.chat.push({ role, content });
+    if (HF.chat.length > 20) HF.chat.shift();
+    localStorage.setItem("hf_chat", JSON.stringify(HF.chat));
+}
+
+/********************************************
+ * FRAMES
  ********************************************/
 const blinkFrames = [
     "homeface-eyesopen2.png",
@@ -38,235 +40,272 @@ const blinkFrames = [
     "homeface-eyesopen2.png"
 ];
 
-let blinking = false;
+const lookLeftFrame = "homeface-lookleft.png";
+const lookRightFrame = "homeface-lookright.png";
 
-function playBlink() {
-    if (blinking || sleeping) return;
-    blinking = true;
+const prayFrames = [
+    "homeface-pray1.png",
+    "homeface-pray2.png",
+    "homeface-pray3.png",
+    "homeface-pray4.png"
+];
 
-    let i = 0;
-    const blinkTimer = setInterval(() => {
-        face.src = blinkFrames[i];
-        i++;
-        if (i >= blinkFrames.length) {
-            clearInterval(blinkTimer);
-            blinking = false;
-        }
-    }, 80);
-}
+const mouthFrames = [
+    "homeface-mouth-open.png",
+    "homeface-midmouth2.png"
+];
 
-function autoBlinkLoop() {
-    const delay = Math.random() * 2500 + 2000;
-    setTimeout(() => {
-        playBlink();
-        autoBlinkLoop();
-    }, delay);
-}
-
-autoBlinkLoop();
-
-/********************************************
- * SLEEPING SYSTEM — FINAL V5
- ********************************************/
-
-const sleepIntro = "homeface-sleeping1.png";
-const sleepLoopFrames = [
+const sleepFrames = [
     "homeface-sleeping2.png",
     "homeface-sleeping3.png",
     "homeface-sleeping4.png"
 ];
 
-let idleTimer = null;
+/********************************************
+ * STATE FLAGS
+ ********************************************/
+let blinking = false;
+let praying = false;
+let talking = false;
 let sleeping = false;
-let sleepLoopInterval = null;
-
-const SLEEP_DELAY = 30000;
-
-function resetIdleTimer() {
-    if (sleeping) wakeUp();
-
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(startSleeping, SLEEP_DELAY);
-}
-
-function startSleeping() {
-    sleeping = true;
-    face.src = sleepIntro;
-
-    setTimeout(startSleepLoop, 1000);
-}
-
-function startSleepLoop() {
-    let i = 0;
-
-    sleepLoopInterval = setInterval(() => {
-        face.src = sleepLoopFrames[i];
-        i = (i + 1) % sleepLoopFrames.length;
-    }, 900);
-}
-
-function wakeUp() {
-    sleeping = false;
-    clearInterval(sleepLoopInterval);
-
-    face.src = sleepIntro;
-
-    setTimeout(() => {
-        face.src = "homeface-eyesopen2.png";
-    }, 400);
-}
-
-["touchstart", "touchend", "mousedown", "keydown"].forEach(event => {
-    document.addEventListener(event, resetIdleTimer);
-});
-
-resetIdleTimer();
+let idleRunning = false;
+let sleepTimer = null;
 
 /********************************************
- * MOUTH ANIMATION
+ * ASYNC HELPERS
  ********************************************/
-const mouthFrames = [
-    "homeface-mouth-closed.png",
-    "homeface-midmouth2.png",
-    "homeface-mouth-open.png",
-    "homeface-midmouth2.png"
-];
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-let talkingInterval = null;
-let isTalking = false;
+function waitWhileTalking() {
+    return new Promise(resolve => {
+        const check = setInterval(() => {
+            if (!talking && !sleeping) {
+                clearInterval(check);
+                resolve();
+            }
+        }, 50);
+    });
+}
 
-function startMouthAnimation() {
-    if (isTalking || sleeping) return;
-    isTalking = true;
+function playBlinkAsync() {
+    return new Promise(resolve => {
+        if (sleeping) return resolve();
+        blinking = true;
+        let i = 0;
+
+        const interval = setInterval(() => {
+            face.src = blinkFrames[i++];
+            if (i >= blinkFrames.length) {
+                clearInterval(interval);
+                blinking = false;
+                resolve();
+            }
+        }, 80);
+    });
+}
+
+function playPrayAsync() {
+    return new Promise(resolve => {
+        if (sleeping) return resolve();
+        praying = true;
+        let i = 0;
+
+        const interval = setInterval(() => {
+            face.src = prayFrames[i++];
+            if (i >= 3) {
+                clearInterval(interval);
+                face.src = prayFrames[3];
+                setTimeout(() => {
+                    praying = false;
+                    resolve();
+                }, 800);
+            }
+        }, 180);
+    });
+}
+
+/********************************************
+ * IDLE LOOP
+ ********************************************/
+async function idleLoop() {
+    if (idleRunning || sleeping) return;
+    idleRunning = true;
+
+    while (!sleeping) {
+
+        if (talking) {
+            await waitWhileTalking();
+            continue;
+        }
+
+        await playBlinkAsync();
+
+        if (talking) continue;
+        face.src = lookLeftFrame;
+        await wait(800);
+
+        if (talking) continue;
+        face.src = lookRightFrame;
+        await wait(800);
+
+        if (talking) continue;
+        await playBlinkAsync();
+
+        if (talking) continue;
+        await playPrayAsync();
+
+        await wait(2000);
+    }
+
+    idleRunning = false;
+}
+
+/********************************************
+ * TALKING (MOUTH)
+ ********************************************/
+function startTalking() {
+    if (talking || sleeping) return;
+    talking = true;
 
     let i = 0;
-    talkingInterval = setInterval(() => {
-        face.src = mouthFrames[i];
-        i = (i + 1) % mouthFrames.length;
+    const interval = setInterval(() => {
+        if (!talking) {
+            clearInterval(interval);
+            face.src = blinkFrames[0];
+            return;
+        }
+        face.src = mouthFrames[i++ % mouthFrames.length];
     }, 120);
 }
 
-function stopMouthAnimation() {
-    clearInterval(talkingInterval);
-    isTalking = false;
-
-    if (!sleeping) {
-        face.src = "homeface-eyesopen2.png";
-    }
+function stopTalking() {
+    talking = false;
 }
 
 /********************************************
- * TEXT-TO-SPEECH
+ * SLEEP
  ********************************************/
-async function speakText(text) {
-    try {
-        if (!resolvedOpenAI) {
-            console.warn("⚠ No OpenAI key found.");
+function startSleeping() {
+    if (sleeping) return;
+    sleeping = true;
+    talking = false;
+    idleRunning = false;
+
+    let i = 0;
+    const interval = setInterval(() => {
+        if (!sleeping) {
+            clearInterval(interval);
+            face.src = blinkFrames[0];
             return;
         }
+        face.src = sleepFrames[i++ % sleepFrames.length];
+    }, 350);
+}
 
-        const response = await fetch("https://api.openai.com/v1/audio/speech", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${resolvedOpenAI}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini-tts",
-                voice: "alloy",
-                input: text
-            })
-        });
-
-        const audioData = await response.arrayBuffer();
-        const audio = new Audio(URL.createObjectURL(new Blob([audioData])));
-
-        audio.onplay = startMouthAnimation;
-        audio.onended = stopMouthAnimation;
-
-        audio.play();
-
-    } catch (err) {
-        console.error("Voice error:", err);
-    }
+function stopSleeping() {
+    sleeping = false;
 }
 
 /********************************************
- * MEMORY (SUPABASE)
+ * TIMERS
  ********************************************/
-async function loadMemory() {
-    const { data, error } = await supabaseClient
-        .from("memory")
-        .select("key, value")
-        .order("id", { ascending: true });
+function resetSleepTimer() {
+    stopSleeping();
+    talking = false;
+    praying = false;
+    blinking = false;
+    idleRunning = false;
 
-    if (error) return "";
+    clearTimeout(sleepTimer);
+    idleLoop();
 
-    return data
-        .map(row => `User: ${row.key}\nHomeface: ${row.value}`)
-        .join("\n");
+    sleepTimer = setTimeout(startSleeping, 60000);
 }
 
-async function saveMemory(userMessage, aiReply) {
-    await supabaseClient
-        .from("memory")
-        .insert({ key: userMessage, value: aiReply });
+inputBox.addEventListener("input", resetSleepTimer);
+sendBtn.addEventListener("click", resetSleepTimer);
+
+/********************************************
+ * VOICE
+ ********************************************/
+async function speakText(text) {
+    console.log("🔊 speakText called");
+
+    const audio = new Audio(
+        "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"
+    );
+
+    audio.onplay = () => console.log("▶️ audio started");
+    audio.onerror = e => console.error("❌ audio error", e);
+
+    await audio.play();
 }
 
 /********************************************
- * MAIN SEND MESSAGE
+ * SEND MESSAGE
  ********************************************/
 async function sendMessage() {
-    const message = inputBox.value.trim();
-    if (!message) return;
+    stopSleeping();
+    resetSleepTimer();
 
-    addMessage("You", message);
+    const text = inputBox.value.trim();
+    if (!text) return;
+
+    addMessage("You", text);
+    saveChat("user", text);
     inputBox.value = "";
 
-    const memory = await loadMemory();
+    startTalking();
 
     try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${resolvedOpenAI}`
+                "Authorization": `Bearer ${OPENAI_KEY}`
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini-chat",
+                model: "gpt-4o-mini",
                 messages: [
-                    { role: "system", content: "You are Homeface, a friendly, warm character with emotional memory." },
-                    { role: "system", content: "Here is your memory so far:\n" + memory },
-                    { role: "user", content: message }
+                    { role: "system", content: "You are Homeface, a friendly animated character." },
+                    ...HF.chat,
+                    { role: "user", content: text }
                 ]
             })
         });
 
-        const data = await response.json();
-        const reply = data.choices?.[0]?.message?.content || "(No response)";
+        const data = await res.json();
+        const reply = data.choices[0].message.content;
 
         addMessage("Homeface", reply);
-        speakText(reply);
-        saveMemory(message, reply);
+        saveChat("assistant", reply);
 
-    } catch (err) {
-        console.error("AI error:", err);
+        await speakText(reply);
+        stopTalking();
+
+    } catch {
+        stopTalking();
         addMessage("Homeface", "Error connecting to AI.");
     }
 }
 
 /********************************************
- * CHAT DISPLAY
+ * CHAT UI
  ********************************************/
 function addMessage(sender, text) {
     chatBox.innerHTML += `<p><strong>${sender}:</strong> ${text}</p>`;
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-/********************************************
- * EVENT LISTENERS
- ********************************************/
 sendBtn.addEventListener("click", sendMessage);
 inputBox.addEventListener("keypress", e => {
     if (e.key === "Enter") sendMessage();
 });
+
+/********************************************
+ * START
+ ********************************************/
+resetSleepTimer();
+idleLoop();
