@@ -3,7 +3,6 @@
  * Blink • Look • Pray • Talk • Sleep • Local Memory
  ********************************************/
 
-const OPENAI_KEY = "add api here";
 
 // UI ELEMENTS
 const face = document.getElementById("homeface-img");
@@ -260,24 +259,23 @@ async function sendMessage() {
     startTalking();
 
     try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        const res = await fetch("/api/chat", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_KEY}`
+                "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: "You are Homeface, a friendly animated character." },
-                    ...HF.chat,
-                    { role: "user", content: text }
-                ]
+                message: text
             })
         });
 
         const data = await res.json();
-        const reply = data.choices[0].message.content;
+
+        if (!res.ok) {
+            throw new Error(data.error || "API error");
+        }
+
+        const reply = data.reply || "No response";
 
         addMessage("Homeface", reply);
         saveChat("assistant", reply);
@@ -285,7 +283,8 @@ async function sendMessage() {
         await speakText(reply);
         stopTalking();
 
-    } catch {
+    } catch (err) {
+        console.error(err);
         stopTalking();
         addMessage("Homeface", "Error connecting to AI.");
     }
