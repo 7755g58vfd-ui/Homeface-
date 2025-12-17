@@ -1,11 +1,5 @@
 export default function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
   res.status(200).json({
-    choices: [
-      { message: { content: "Homeface server deployed successfully ✅" } }
-    ]
+    reply: "Homeface is awake now ✅"
   });
 }
