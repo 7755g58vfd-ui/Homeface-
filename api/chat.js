@@ -22,14 +22,11 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    const reply =
-      data?.choices?.[0]?.message?.content ??
-      "I’m here, but I couldn’t think of a reply.";
-
-    res.status(200).json({ reply });
-  } catch (err) {
-    res.status(200).json({
-      reply: "I’m having trouble connecting right now."
-    });
-  }
+if (!data.choices) {
+  return res.status(200).json({
+    reply: `OpenAI error: ${JSON.stringify(data)}`
+  });
 }
+
+const reply = data.choices[0].message.content;
+res.status(200).json({ reply });
