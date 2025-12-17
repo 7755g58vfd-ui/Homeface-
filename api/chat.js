@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message } = req.body;
+    const { messages } = req.body;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -14,20 +14,16 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are Homeface, a friendly animated character." },
-          { role: "user", content: message }
-        ]
+        messages
       })
     });
 
     const data = await response.json();
-
-    res.status(200).json({
-      reply: data.choices?.[0]?.message?.content || "No reply"
-    });
+    res.status(200).json(data);
 
   } catch (err) {
-    res.status(500).json({ error: "AI error" });
+    res.status(500).json({ error: "AI connection failed" });
+  }
+};
   }
 }
